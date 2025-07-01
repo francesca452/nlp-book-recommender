@@ -1,10 +1,6 @@
 # Security
 .env
 
-# Text notebook
-notebook.md
-prova.ipynb
-
 # Datasets
 *.csv
 tagged_description.txt
