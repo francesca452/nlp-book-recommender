@@ -1,6 +1,6 @@
 # Abbiamo terminato tutti i componenti per il book-recommender
 # Il vector database permette di trovare libri simili alla query
-# Il text classiificator permetted di classificare i libri in categoria "fiction" e
+# Il text classiificator permette di classificare i libri in categoria "fiction" e
 # nonfiction", significando che gli utenti possano filtrare i libri in base alla categoria
 # Abbiamo anche associato ad ogni libro probabilità di emotion
 # Quello che abbiamo è quindi un buon codice e un buon dataset
