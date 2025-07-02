@@ -1,6 +1,6 @@
 # Abbiamo terminato tutti i componenti per il book-recommender
 # Il vector database permette di trovare libri simili alla query
-# Il text classiificator permette di classificare i libri in categoria "fiction" e
+# Il text classificator permette di classificare i libri in categoria "fiction" e
 # nonfiction", significando che gli utenti possano filtrare i libri in base alla categoria
 # Abbiamo anche associato ad ogni libro probabilità di emotion
 # Quello che abbiamo è quindi un buon codice e un buon dataset
@@ -57,9 +57,9 @@ raw_documents = TextLoader("tagged_description.txt", encoding="utf-8").load()
 text_splitter = CharacterTextSplitter(separator="\n", chunk_size=0, chunk_overlap=0)
 documents = text_splitter.split_documents(raw_documents)
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-db_books = Chroma.from_documents(documents, embedding=embeddings)
+db_books = Chroma.from_documents(documents, embedding=embeddings, collection_metadata={"hnsw:space": "cosine"}, persist_directory=None)
 
-# Costruiamo una dfunzione che recupererà questi consigli di lettura, che farà anche
+# Costruiamo una funzione che recupererà questi consigli di lettura, che farà anche
 # filtraggio sulla base delle categorie e in base all' "emotion tone"
 # All'inizio si prendono 50 libri e poi ne vengono restituiti dopo il filtraggio 16
 # (scelto 16 per il fatto che si dimostra bene presentato nella dashboard)
@@ -70,19 +70,25 @@ def retrieve_semantic_recommendations(
     initial_top_k: int = 50, 
     final_top_k: int = 16,
 ) -> pd.DataFrame:
-    recs = db_books.similarity_search(query, k=initial_top_k)
+    recs_with_scores = db_books.similarity_search_with_score(query, k=initial_top_k)
+    
     books_list = []
 
-    for rec in recs:
+    for rec, score in recs_with_scores:
         match = re.search(r"\b\d{10,13}\b", rec.page_content)
         if match:
             try:
                 isbn_int = int(match.group())
-                books_list.append(isbn_int)
+                books_list.append(isbn_int, score)
             except ValueError:
                 continue
+    
+    df_matches = pd.DataFrame(books_list, columns=["isbn13", "similarity_score"])
+    result_df = books.merge(df_matches, on="isbn13")
+    result_df = result_df.drop_duplicates(subset="isbn13")
+    result_df = result_df.sort_values(by="similarity_score", ascending=True)
 
-    books_recs = books[books["isbn13"].isin(books_list)].head(final_top_k)
+    books_recs = result_df.head(final_top_k)
 
     # Facciamo ora filtraggio basato sulle categorie
     # Permettiamo di leggere tutte le categorie o solo 4, che sono le principali (fiction, nonfiction,
@@ -149,7 +155,7 @@ def recommend_books(
 categories = ["All"] + sorted(books["simple_categories"].unique())
 tones = ["All"] + ["Happy", "Surprising", "Angry", "Suspenseful", "Sad"]
 
-# Abbiamo tanti tempi di gradio: visita a gradio.app/guides/theming-guide
+# Temi di gradio su: gradio.app/guides/theming-guide
 with gr.Blocks(theme=gr.themes.Glass()) as dashboard:
     gr.Markdown("# Semantic book recommender") # Titolo della dashboard
 
