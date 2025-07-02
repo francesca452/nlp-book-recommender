@@ -79,7 +79,7 @@ def retrieve_semantic_recommendations(
         if match:
             try:
                 isbn_int = int(match.group())
-                books_list.append(isbn_int, score)
+                books_list.append((isbn_int, score))
             except ValueError:
                 continue
     
