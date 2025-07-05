@@ -1,16 +1,12 @@
-# Abbiamo terminato tutti i componenti per il book-recommender
-# Il vector database permette di trovare libri simili alla query
-# Il text classificator permette di classificare i libri in categoria "fiction" e
-# nonfiction", significando che gli utenti possano filtrare i libri in base alla categoria
-# Abbiamo anche associato ad ogni libro probabilità di emotion
-# Quello che abbiamo è quindi un buon codice e un buon dataset
-# Ma rimangono comunque tali, nulla di più
-# Come renderli più user-friendly? 
+# Sono terminati tutti i passaggi per rendere funzionante il book-recommender
+# - Il vector database permette di trovare libri simili alla query
+# - Il text classificator ha permesso la catalogazione di libri in categoria Fiction e NonFiction
+# - Ogni libro ha una probabilità di sentiment associato
 
-# Creiamo una dashboard che permetta agli utenti di utilizzare l'applicazione in modo più comodo
-# Ci muoviamo ora su un file Python e abbiamo abbandonato i Notebook Jupyter
+# L'utente potrà usufruire dell'applicazione tramite interfaccia
+# Definisco una dashboard che sfrutta il pacchetto Gradio (open source di Python)
 
-# Import libraries and depences
+# Librerie e dipendenze
 from doctest import OutputChecker
 import pandas as pd
 import numpy as np
@@ -32,37 +28,28 @@ load_dotenv()
 
 books = pd.read_csv("books_with_emotions.csv")
 
-# Gradio è un pacchetto open source di Python che permette di mostrare dashboard
-# appositamente pensate per modelli di machine learning
-# fonte: gradio.app/guides/quickstart
-# Utilizzeremo thumbnail nel book-recommender, che permette una piccola preview della 
-# copertina dei libri (è una feature nel dataset)
-# Il dataset da link a google books per fare vedere l'immagine di copertina, ma quello
-# che di default da sono immagini di copertine con dimensioni diverse
-# Chiediamo al dataset di darci la massima dimensionalità delle immagini per permettere la 
-# migliore risoluzione 
+# La feature "thumbnail" permette una preview della copertina dei libri
+# I valori associati alla caratteristica sono link a Google Books, che possono rappresentare immagini di copertine con dimensioni diverse
+# Cerco la massima dimensionalità delle immagini per una migliore risoluzione 
 books["large_thumbnail"] = books["thumbnail"] + "&fife=w800"
 
-# Abbiamo dei libri senza copertina, quindi quando facciamo girare il codice otteniamo un errore
-# Per risolvere, usiamo una copertina standard per libri che non ce l'hanno
+# Alcuni libri sono senza copertina
+# Per risolvere, uso una copertina standard e la sostisco al valore nullo per i campioni interessati
 books["large_thumbnail"] = np.where(
     books["large_thumbnail"].isna(),
     "cover-not-found.jpg",
     books["large_thumbnail"]
 )
 
-# Codice per creare il vector database, che è il cuore del book-recommender
-# che è la "semantic recommendations"
+# Codice per creare il vector database (già nel file vector-search.ipynb)
 raw_documents = TextLoader("tagged_description.txt", encoding="utf-8").load()
 text_splitter = CharacterTextSplitter(separator="\n", chunk_size=0, chunk_overlap=0)
 documents = text_splitter.split_documents(raw_documents)
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 db_books = Chroma.from_documents(documents, embedding=embeddings, collection_metadata={"hnsw:space": "cosine"}, persist_directory=None)
 
-# Costruiamo una funzione che recupererà questi consigli di lettura, che farà anche
-# filtraggio sulla base delle categorie e in base all' "emotion tone"
-# All'inizio si prendono 50 libri e poi ne vengono restituiti dopo il filtraggio 16
-# (scelto 16 per il fatto che si dimostra bene presentato nella dashboard)
+# Sono selezionati 50 libri dal book-reccomender e mostrati solo i primi 16 con match migliore
+# La scelta del numero 16 sta nella specifica interfaccia della dashboard, che si presta a quel numero di libri mostrati
 def retrieve_semantic_recommendations(
     query: str,
     category: str = None,
@@ -116,7 +103,7 @@ def retrieve_semantic_recommendations(
     return books_recs
 
 
-# Facciamo ora una funzione che mostri cosa fare vedere nel dashboard
+# Funzione che definisce cosa è mostrato nella dashboard
 def recommend_books(
     query: str,
     category: str,
@@ -128,13 +115,12 @@ def recommend_books(
     # Viene fatto un loop sui consigli ritornati
     for _, row in recommendations.iterrows():
         description = row["description"]
-        # Non vogliamo vedere tutta la descrizione, ma la dividiamo in parole:
-        # se supera le 30 parole, permettiamo di mostrarla solo con una azione successiva
+        # Mostro solo 30 parole della descrizione
         truncated_desc_split = description.split()
         truncated_description = " ".join(truncated_desc_split[:30]) + "..."
 
-        # Facciamo un ragionamento simile anche per la lista di autori:
-        # se un libro ha più di un autore, sono combinati in una semicolon
+        # Simile anche per gli autori
+        # Se un libro ha più di un autore, sono combinati in una semicolon
         authors_split = row["authors"].split(";")
         if len(authors_split) == 2:
             authors_str = f"{authors_split[0]} and {authors_split[1]}"
@@ -143,15 +129,15 @@ def recommend_books(
         else:
             authors_str = row["authors"]
         
-        # Il modo in cui mostreremo tutte queste informazioni sul libro sarà tramite
-        # una caption che si aggiungerà all'immagine di copertina del libro
+        # Tutte queste informazioni sul libro sono mostrate in una caption che si aggiungerà all'immagine di copertina del libro
         caption = f"{row['title']} by {authors_str}: {truncated_description}"
         results.append((row["large_thumbnail"], caption))
     
     return results
 
+# Si hanno a dosposizione tutte le funzioni necessarie a creare la dashboard
 
-# Ora abbiamo le funzioni necessarie a creare la dashboard
+# Opzioni per il campo categorie (generi) e emotion state
 categories = ["All"] + sorted(books["simple_categories"].unique())
 tones = ["All"] + ["Happy", "Surprising", "Angry", "Suspenseful", "Sad"]
 
@@ -178,3 +164,5 @@ with gr.Blocks(theme=gr.themes.Glass()) as dashboard:
 if __name__ == "__main__":
     print("Launching Gradio dashboard")
     dashboard.launch(share=True)
+
+# L'interfaccia è visibile runnando questo file .py
