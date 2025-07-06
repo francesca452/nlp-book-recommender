@@ -48,14 +48,14 @@ documents = text_splitter.split_documents(raw_documents)
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 db_books = Chroma.from_documents(documents, embedding=embeddings, collection_metadata={"hnsw:space": "cosine"}, persist_directory=None)
 
-# Sono selezionati 50 libri dal book-reccomender e mostrati solo i primi 16 con match migliore
-# La scelta del numero 16 sta nella specifica interfaccia della dashboard, che si presta a quel numero di libri mostrati
+# Sono selezionati 50 libri dal book-reccomender e mostrati solo i primi 40 con match migliore
+# La scelta del numero 40 sta nella specifica interfaccia della dashboard, che si presta a quel numero di libri mostrati
 def retrieve_semantic_recommendations(
     query: str,
     category: str = None,
     tone: str = None,
     initial_top_k: int = 50, 
-    final_top_k: int = 16,
+    final_top_k: int = 40,
 ) -> pd.DataFrame:
     recs_with_scores = db_books.similarity_search_with_score(query, k=initial_top_k)
     
@@ -109,6 +109,9 @@ def recommend_books(
     category: str,
     tone: str,
 ): 
+    if not query.strip(): # Se la query è vuota o fatta di spazi
+        return []
+
     recommendations = retrieve_semantic_recommendations(query, category, tone)
     results = []
 
@@ -152,7 +155,7 @@ with gr.Blocks(theme=gr.themes.Glass()) as dashboard:
         submit_button = gr.Button("Find recommendations")
     
     gr.Markdown("## Recommendations")
-    output = gr.Gallery(label = "Recommended books", columns=8, rows=2)
+    output = gr.Gallery(label = "Recommended books", columns=8, rows=5)
 
     submit_button.click(
         fn = recommend_books,
