@@ -1,9 +1,2 @@
 # Security
 .env
-
-# Datasets
-*.csv
-tagged_description.txt
-
-# Images
-cover-not-found.jpg
